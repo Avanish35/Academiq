@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Optimizer - Student Productivity Platform</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <!-- Sidebar Overlay (mobile) -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-graduation-cap"></i>
+                <span>Academiq</span>
+            </div>
+            <ul class="nav-links">
+                <li class="active"><a href="#dashboard"><i class="fa-solid fa-chart-pie"></i> Dashboard</a></li>
+                <li><a href="#planner"><i class="fa-solid fa-calendar-days"></i> Smart Planner</a></li>
+                <li><a href="#tasks"><i class="fa-solid fa-list-check"></i> Tasks & Habits</a></li>
+                <li><a href="#focus"><i class="fa-solid fa-stopwatch"></i> Focus Timer</a></li>
+                <li><a href="#analytics"><i class="fa-solid fa-chart-line"></i> Analytics</a></li>
+            </ul>
+            <div class="user-profile">
+                <div class="avatar" id="sidebarAvatar">U</div>
+                <div class="info">
+                    <span class="name">Student</span>
+                    <span class="status">Freshman</span>
+                </div>
+                <div class="user-profile-actions">
+                    <a href="profile.html" id="profileBtn" class="icon-btn" title="My Profile">
+                        <i class="fa-solid fa-user-pen"></i>
+                    </a>
+                    <button id="logoutBtn" class="icon-btn" title="Logout" style="color: var(--text-muted);">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header">
+                <div class="header-left">
+                    <button class="sidebar-toggle-btn is-open" id="sidebarToggle" title="Toggle Sidebar">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                    <div class="greeting">
+                        <h1>Welcome back, <span class="highlight">Student</span> 👋</h1>
+                        <p>Let's optimize your academic life today.</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <select id="themeSelector" class="select-dropdown" style="margin-right: 1rem;">
+                        <option value="light">☀️ Light Theme</option>
+                        <option value="dark">🌙 Dark Theme</option>
+                        <option value="sunset">🌅 Sunset Theme</option>
+                        <option value="forest">🌲 Forest Theme</option>
+                    </select>
+                    <div class="notification-wrapper">
+                        <button class="icon-btn" id="notificationBtn">
+                            <i class="fa-regular fa-bell"></i>
+                            <span class="notification-badge" id="notificationBadge"></span>
+                        </button>
+                        <div class="notification-dropdown glass" id="notificationDropdown">
+                            <div class="noti-header">
+                                <h3>Notifications</h3>
+                                <button class="mark-all-read" id="markAllReadBtn">Mark all as read</button>
+                            </div>
+                            <div class="noti-list" id="notificationList">
+                                <!-- Notifications will be injected here -->
+                                <div class="noti-empty">No new notifications</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn primary-btn" id="newTaskHeaderBtn">+ New Task</button>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <section id="dashboard" class="page active">
+                <div class="dashboard-grid">
+                    <!-- Quick Stats -->
+                    <div class="stat-card glass">
+                        <div class="stat-icon"><i class="fa-solid fa-fire"></i></div>
+                        <div class="stat-info">
+                            <h3>Study Streak</h3>
+                            <p class="value" id="dashStreakValue">0 Days</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+                        <div class="stat-info">
+                            <h3>Focus Time</h3>
+                            <p class="value" id="dashFocusValue">0h 0m</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon"><i class="fa-solid fa-book"></i></div>
+                        <div class="stat-info">
+                            <h3>Tasks Done</h3>
+                            <p class="value" id="dashTasksValue">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass burnout-warning">
+                        <div class="stat-icon"><i class="fa-solid fa-battery-half"></i></div>
+                        <div class="stat-info">
+                            <h3>Burnout Level</h3>
+                            <p class="value" id="burnoutValue">Low <span class="trend" id="burnoutAction">Keep
+                                    going</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Upcoming Schedule -->
+                    <div class="dashboard-widget schedule-widget glass">
+                        <div class="widget-header">
+                            <h2>Smart Schedule</h2>
+                            <a href="#planner" class="link">View Full</a>
+                        </div>
+                        <div class="schedule-list" id="dashboardTaskList">
+                            <!-- Tasks will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Habit Tracker -->
+                    <div class="dashboard-widget habits-widget glass">
+                        <div class="widget-header">
+                            <h2>Daily Habits</h2>
+                            <button id="addHabitBtn" class="icon-btn small-btn"><i
+                                    class="fa-solid fa-plus"></i></button>
+                        </div>
+                        <div class="habits-list" id="dashboardHabitList">
+                            <!-- Habits will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Knowledge Tree / Garden Widget -->
+                    <div class="dashboard-widget garden-widget glass">
+                        <div class="widget-header">
+                            <h2>Knowledge Tree</h2>
+                            <span class="text-muted" id="treeStatus">Level 1: Seedling</span>
+                        </div>
+                        <div class="garden-container">
+                            <div class="tree-visual" id="treeVisual">
+                                <!-- SVG Tree will be injected here -->
+                                <svg viewBox="0 0 100 100" class="tree-svg">
+                                    <circle cx="50" cy="85" r="5" class="dirt" />
+                                    <path id="treePath" d="M50,85 L50,85" class="tree-trunk" />
+                                    <g id="leavesGroup"></g>
+                                </svg>
+                            </div>
+                            <div class="garden-stats">
+                                <p>Focus more to grow your tree!</p>
+                                <div class="progress-bar-mini">
+                                    <div class="progress-fill" id="treeProgress"></div>
+                                </div>
+                                <span class="next-level" id="treeNextLevel">Next: Sprout (2h)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Smart Planner Content -->
+            <section id="planner" class="page" style="display: none;">
+                <div class="page-header-row">
+                    <div class="title-group">
+                        <h2>Weekly Study Plan</h2>
+                        <p class="text-muted">Smart scheduling based on your tasks</p>
+                    </div>
+                    <button id="autoScheduleBtn" class="btn primary-btn"><i class="fa-solid fa-wand-magic-sparkles"></i>
+                        AI Auto-Schedule</button>
+                </div>
+                <div class="calendar-container glass">
+                    <div class="calendar-grid">
+                        <div class="day-col" data-day="Mon">
+                            <div class="day-header">Mon</div>
+                            <div class="day-blocks"></div>
+                        </div>
+                        <div class="day-col" data-day="Tue">
+                            <div class="day-header">Tue</div>
+                            <div class="day-blocks"></div>
+                        </div>
+                        <div class="day-col" data-day="Wed">
+                            <div class="day-header">Wed</div>
+                            <div class="day-blocks"></div>
+                        </div>
+                        <div class="day-col" data-day="Thu">
+                            <div class="day-header">Thu</div>
+                            <div class="day-blocks"></div>
+                        </div>
+                        <div class="day-col" data-day="Fri">
+                            <div class="day-header">Fri</div>
+                            <div class="day-blocks"></div>
+                        </div>
+                        <div class="day-col" data-day="Sat">
+                            <div class="day-header">Sat</div>
+                            <div class="day-blocks"></div>
+                        </div>
+                        <div class="day-col" data-day="Sun">
+                            <div class="day-header">Sun</div>
+                            <div class="day-blocks"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tasks Content -->
+            <section id="tasks" class="page" style="display: none;">
+                <div class="kanban-board">
+                    <div class="kanban-column kanban-col glass" data-status="To Do">
+                        <div class="column-header">
+                            <h3>To Do <span class="count" id="todoCount">0</span></h3>
+                        </div>
+                        <div class="kanban-cards" id="todoTasks"></div>
+                    </div>
+                    <div class="kanban-column kanban-col glass" data-status="In Progress">
+                        <div class="column-header">
+                            <h3>In Progress <span class="count" id="inprogressCount">0</span></h3>
+                        </div>
+                        <div class="kanban-cards" id="inprogressTasks"></div>
+                    </div>
+                    <div class="kanban-column kanban-col glass" data-status="Completed">
+                        <div class="column-header">
+                            <h3>Completed <span class="count" id="completedCount">0</span></h3>
+                        </div>
+                        <div class="kanban-cards" id="completedTasks"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Focus Timer Content -->
+            <section id="focus" class="page" style="display: none;">
+                <div class="focus-container">
+                    <div class="timer-card glass">
+                        <div class="timer-settings-header"
+                            style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                            <select id="techniqueSelector" class="select-dropdown">
+                                <option value="pomodoro">🍅 Pomodoro (25/5)</option>
+                                <option value="rule5217">⚡ 52/17 Rule</option>
+                                <option value="block90">🧠 90-min Block</option>
+                                <option value="custom">⚙️ Custom</option>
+                            </select>
+                            <button id="toggleTimerSettings" class="icon-btn"
+                                style="width: 35px; height: 35px; font-size: 1rem;" title="Timer Settings"><i
+                                    class="fa-solid fa-gear"></i></button>
+                        </div>
+
+                        <div id="timerSettingsPanel" class="timer-settings-panel"
+                            style="display: none; width: 100%; margin-bottom: 2rem; padding: 1.5rem; background: rgba(0,0,0,0.03); border-radius: 12px; border: 1px solid var(--glass-border);">
+                            <div style="display: flex; gap: 1rem; justify-content: space-between;">
+                                <div class="time-input-group">
+                                    <label class="text-muted"
+                                        style="font-size: 0.8rem; display: block; margin-bottom: 0.25rem;">Focus
+                                        (m)</label>
+                                    <input type="number" id="focusTimeInput" value="25" class="time-input" min="1"
+                                        max="120">
+                                </div>
+                                <div class="time-input-group">
+                                    <label class="text-muted"
+                                        style="font-size: 0.8rem; display: block; margin-bottom: 0.25rem;">Short
+                                        Break</label>
+                                    <input type="number" id="shortBreakInput" value="5" class="time-input" min="1"
+                                        max="60">
+                                </div>
+                                <div class="time-input-group">
+                                    <label class="text-muted"
+                                        style="font-size: 0.8rem; display: block; margin-bottom: 0.25rem;">Long
+                                        Break</label>
+                                    <input type="number" id="longBreakInput" value="15" class="time-input" min="1"
+                                        max="60">
+                                </div>
+                            </div>
+                            <button id="saveTimerSettings" class="btn primary-btn"
+                                style="width: 100%; margin-top: 1rem; padding: 0.5rem; font-size: 0.9rem;">Save
+                                Times</button>
+                        </div>
+
+                        <div class="timer-tabs">
+                            <button class="timer-tab active" data-mode="focus">Focus</button>
+                            <button class="timer-tab" data-mode="shortBreak">Short Break</button>
+                            <button class="timer-tab" data-mode="longBreak">Long Break</button>
+                        </div>
+                        <div class="timer-display">
+                            <span id="minutes">25</span><span class="colon">:</span><span id="seconds">00</span>
+                        </div>
+                        <div class="timer-controls">
+                            <button id="startTimer" class="btn primary-btn btn-large">Start Focus</button>
+                            <button id="resetTimer" class="btn icon-btn"><i
+                                    class="fa-solid fa-rotate-right"></i></button>
+                        </div>
+                        <p class="text-muted mt-3">Current Task: <strong id="timerCurrentTask">No active task</strong>
+                        </p>
+                    </div>
+
+                    <div class="session-log glass">
+                        <h3>Today's Sessions</h3>
+                        <div class="log-list" id="focusSessionLog">
+                            <!-- Session logs will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Analytics Content -->
+            <section id="analytics" class="page" style="display: none;">
+                <div class="page-header-row" style="margin-bottom: 2rem;">
+                    <div class="title-group">
+                        <h2>Performance Analytics</h2>
+                        <p class="text-muted">Your study insights at a glance</p>
+                    </div>
+                </div>
+
+                <!-- KPI Cards Row -->
+                <div class="analytics-kpi-row">
+                    <div class="kpi-card glass">
+                        <div class="kpi-icon" style="background: rgba(99,102,241,0.12); color: #6366f1;"><i
+                                class="fa-solid fa-clock"></i></div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Total Focus Time</span>
+                            <span class="kpi-value" id="analyticsTotalTime">0h 0m</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass">
+                        <div class="kpi-icon" style="background: rgba(16,185,129,0.12); color: #10b981;"><i
+                                class="fa-solid fa-fire"></i></div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Current Streak</span>
+                            <span class="kpi-value" id="analyticsStreak">0 Days</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass">
+                        <div class="kpi-icon" style="background: rgba(14,165,233,0.12); color: #0ea5e9;"><i
+                                class="fa-solid fa-bolt"></i></div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Avg. Session</span>
+                            <span class="kpi-value" id="analyticsAvgSession">0m</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card glass">
+                        <div class="kpi-icon" style="background: rgba(245,158,11,0.12); color: #f59e0b;"><i
+                                class="fa-solid fa-check-circle"></i></div>
+                        <div class="kpi-info">
+                            <span class="kpi-label">Tasks Completed</span>
+                            <span class="kpi-value" id="analyticsTasksDone">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="analytics-charts-row">
+                    <!-- Bar Chart: Focus by Day -->
+                    <div class="chart-card glass chart-wide">
+                        <div class="widget-header" style="margin-bottom: 1.5rem;">
+                            <h3>Focus Time — Last 7 Days</h3>
+                            <span class="text-muted" id="chartTotalLabel" style="font-size: 0.85rem;"></span>
+                        </div>
+                        <div class="bar-chart-container" id="focusBarChart">
+                            <!-- Bars rendered by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Task Status Ring -->
+                    <div class="chart-card glass chart-narrow">
+                        <h3 style="margin-bottom: 1.5rem;">Task Status</h3>
+                        <div class="ring-chart-wrap">
+                            <svg viewBox="0 0 120 120" class="ring-svg" id="taskRingSvg">
+                                <circle cx="60" cy="60" r="50" class="ring-track" />
+                                <circle cx="60" cy="60" r="50" class="ring-progress ring-todo" id="ringTodo"
+                                    stroke-dasharray="0 314" />
+                                <circle cx="60" cy="60" r="50" class="ring-progress ring-progress-color"
+                                    id="ringProgress" stroke-dasharray="0 314" />
+                                <circle cx="60" cy="60" r="50" class="ring-progress ring-done" id="ringDone"
+                                    stroke-dasharray="0 314" />
+                            </svg>
+                            <div class="ring-center-text" id="ringCenterText">0<br><span>Tasks</span></div>
+                        </div>
+                        <div class="ring-legend" id="ringLegend"></div>
+                    </div>
+                </div>
+
+                <!-- Bottom Row: Weekly breakdown + Heatmap -->
+                <div class="analytics-bottom-row">
+                    <!-- Weekly breakdown table -->
+                    <div class="chart-card glass chart-wide">
+                        <h3 style="margin-bottom: 1.25rem;">Weekly Breakdown</h3>
+                        <table class="analytics-table" id="analyticsBreakdownTable">
+                            <thead>
+                                <tr>
+                                    <th>Day</th>
+                                    <th>Focus Time</th>
+                                    <th>Sessions</th>
+                                    <th>Progress</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analyticsBreakdownBody">
+                                <tr>
+                                    <td colspan="4" class="text-muted" style="text-align:center; padding: 1rem;">No data
+                                        yet — complete a focus session to start!</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Activity Heatmap -->
+                    <div class="chart-card glass chart-narrow">
+                        <h3 style="margin-bottom: 1rem;">Activity Heatmap</h3>
+                        <div class="heatmap-container">
+                            <div class="heatmap-grid" id="activityHeatmap"></div>
+                            <div class="heatmap-legend">
+                                <span class="text-muted" style="font-size: 0.75rem;">Less</span>
+                                <div class="heat-box"></div>
+                                <div class="heat-box lvl-1"></div>
+                                <div class="heat-box lvl-2"></div>
+                                <div class="heat-box lvl-3"></div>
+                                <div class="heat-box lvl-4"></div>
+                                <span class="text-muted" style="font-size: 0.75rem;">More</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="taskModal" class="modal" style="display: none;">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h2>Add New Task</h2>
+                <button class="close-modal" id="closeTaskModal">&times;</button>
+            </div>
+            <form id="taskForm">
+                <div class="modal-body-grid">
+                    <div class="modal-col-left">
+                        <div class="input-group">
+                            <label><i class="fa-solid fa-font"></i> Task Title</label>
+                            <input type="text" id="taskTitle" placeholder="e.g., Study Organic Chemistry" required>
+                        </div>
+                        <div class="input-row">
+                            <div class="input-group">
+                                <label><i class="fa-solid fa-tag"></i> Category</label>
+                                <select id="taskCategory">
+                                    <option value="Study">📖 Study</option>
+                                    <option value="Research">🔍 Research</option>
+                                    <option value="Project">💻 Project</option>
+                                    <option value="Exam">📝 Exam</option>
+                                    <option value="Other">✨ Other</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label><i class="fa-solid fa-clock"></i> Est. Duration</label>
+                                <select id="taskDuration">
+                                    <option value="15">15 mins</option>
+                                    <option value="30">30 mins</option>
+                                    <option value="60" selected>1 hour</option>
+                                    <option value="120">2 hours</option>
+                                    <option value="180">3+ hours</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="input-row">
+                            <div class="input-group">
+                                <label><i class="fa-solid fa-calendar-day"></i> Due Date</label>
+                                <input type="date" id="taskDate">
+                            </div>
+                            <div class="input-group">
+                                <label><i class="fa-solid fa-clock-rotate-left"></i> Time</label>
+                                <input type="time" id="taskTime">
+                            </div>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label><i class="fa-solid fa-sliders"></i> Priority Matrix Helper</label>
+                            <div class="priority-helper-grid">
+                                <button type="button" class="matrix-btn" id="urgentBtn">Urgent</button>
+                                <button type="button" class="matrix-btn" id="importantBtn">Important</button>
+                            </div>
+                            <input type="hidden" id="taskPriority" value="Medium">
+                            <p class="matrix-result">Calculated Priority: <span id="priorityBadge" class="priority-badge med">Medium</span></p>
+                        </div>
+                    </div>
+
+                    <div class="modal-col-right">
+                        <div class="input-group">
+                            <label style="display: flex; justify-content: space-between; align-items: center;">
+                                <span><i class="fa-solid fa-wand-magic-sparkles"></i> AI Sub-tasks</span>
+                                <button type="button" class="ai-gen-btn" id="generateSubtasksBtn">
+                                    <i class="fa-solid fa-sparkles"></i> Generate Steps
+                                </button>
+                            </label>
+                            <div class="subtasks-container" id="subtasksList">
+                                <p class="text-muted" style="font-size: 0.75rem; text-align: center; padding: 1rem;">No sub-tasks yet.</p>
+                            </div>
+                            <div class="add-subtask-row">
+                                <input type="text" id="newSubtaskInput" placeholder="Add step...">
+                                <button type="button" id="addSubtaskBtn"><i class="fa-solid fa-plus"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem;">
+                    <input type="checkbox" id="addToPlanner" style="width: auto;">
+                    <label for="addToPlanner" style="margin: 0; font-size: 0.85rem;">Automatically add to Smart Planner</label>
+                </div>
+                <button type="submit" class="btn primary-btn btn-full">Create Task</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Habit Modal -->
+    <div id="habitModal" class="modal" style="display: none;">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h2>Add New Habit</h2>
+                <button class="close-modal" id="closeHabitModalBtn">&times;</button>
+            </div>
+            <form id="habitForm">
+                <div class="input-group">
+                    <label>Habit Title</label>
+                    <input type="text" id="habitTitle" placeholder="e.g., Read 20 pages" required>
+                </div>
+                <div class="input-group">
+                    <label>Frequency</label>
+                    <select id="habitFrequency">
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn primary-btn btn-full">Create Habit</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Schedule Block Modal -->
+    <div id="editScheduleModal" class="modal" style="display: none;">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h2>Edit Study Block</h2>
+                <button class="close-modal" id="closeEditScheduleModal">&times;</button>
+            </div>
+            <form id="editScheduleForm">
+                <input type="hidden" id="editScheduleId">
+                <div class="input-group">
+                    <label>Title</label>
+                    <input type="text" id="editScheduleTitle" required>
+                </div>
+                <div class="input-group">
+                    <label>Day of Week</label>
+                    <select id="editScheduleDay">
+                        <option value="Mon">Monday</option>
+                        <option value="Tue">Tuesday</option>
+                        <option value="Wed">Wednesday</option>
+                        <option value="Thu">Thursday</option>
+                        <option value="Fri">Friday</option>
+                        <option value="Sat">Saturday</option>
+                        <option value="Sun">Sunday</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Start Time</label>
+                    <input type="time" id="editScheduleStart" required>
+                </div>
+                <div class="input-group" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                    <input type="checkbox" id="editScheduleImportant" style="width: auto;">
+                    <label for="editScheduleImportant" style="margin: 0; font-size: 0.85rem;">Mark as Important</label>
+                </div>
+                <div class="modal-footer" style="display: flex; gap: 1rem;">
+                    <button type="button" id="deleteScheduleBtn" class="btn danger-btn" style="flex: 1;">Delete</button>
+                    <button type="submit" class="btn primary-btn" style="flex: 2;">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Scripts -->
+    <script src="js/main.js"></script>
+</body>
+
+</html>
