@@ -1,4 +1,20 @@
-// profile.js — Dedicated profile page logic
+// profile.js — Dedicated profile page logic (fully persistent backend updates)
+
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000/api'
+    : `${window.location.protocol}//${window.location.hostname}:5000/api`;
+
+// Security: Escape HTML to protect against Cross-Site Scripting (XSS)
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 
 // Auth guard
 const token = localStorage.getItem('token');
@@ -52,26 +68,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ── Load user data ─────────────────────────────────────────────
-    const userJson = localStorage.getItem('user');
-    const user = userJson ? JSON.parse(userJson) : {};
-    let currentAvatarData = user.avatar || '';
-
-    // Helper
+    // ── State Variables ─────────────────────────────────────────────
+    let currentAvatarData = ''; // Holds local image URL (resolved backend path or local state)
     const $ = (id) => document.getElementById(id);
 
-    // Pre-fill form
-    if ($('profileName')) $('profileName').value = user.name || '';
-    if ($('profileEmail')) $('profileEmail').value = user.email || '';
-    if ($('profileInstitution')) $('profileInstitution').value = user.institution || '';
-    if ($('profileYear')) $('profileYear').value = user.year || 'Freshman';
-    if ($('profileField')) $('profileField').value = user.field || '';
-    if ($('profileStudentId')) $('profileStudentId').value = user.studentId || '';
-    if ($('profileGoal')) $('profileGoal').value = user.goal || '';
-    if ($('profileQuote')) $('profileQuote').value = user.quote || '';
+    // ── API Fetch Helper ──────────────────────────────────────────
+    async function apiFetch(endpoint, options = {}) {
+        const token = localStorage.getItem('token');
+        const defaultOptions = {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        };
 
-    // Render left-panel preview from saved data
-    syncLeftPanel(user);
+        const mergedOptions = {
+            ...defaultOptions,
+            ...options,
+            headers: {
+                ...defaultOptions.headers,
+                ...(options.headers || {})
+            }
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, mergedOptions);
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = 'login.html';
+                return;
+            }
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || errorData.message || 'API request failed');
+            }
+            return await response.json();
+        } catch (err) {
+            console.error(`API Error on ${endpoint}:`, err);
+            throw err;
+        }
+    }
 
     // ── Quote preview ──────────────────────────────────────────────
     const quoteCard = $('quoteCard');
@@ -86,7 +123,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (quoteCard) quoteCard.style.display = 'none';
         }
     }
-    updateQuotePreview(user.quote || '');
 
     if (quoteInput) {
         quoteInput.addEventListener('input', () => updateQuotePreview(quoteInput.value));
@@ -129,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if ($('sidebarStatus')) $('sidebarStatus').textContent = year || 'Freshman';
     }
 
-    // Avatar Click Actions (Upload or Enlarge)
+    // ── Avatar Upload and Preview ─────────────────────────────────
     const avatarDisplay = $('avatarDisplay');
     const avatarUploadTrigger = $('avatarUploadTrigger');
     const avatarUpload = $('avatarUpload');
@@ -149,7 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }, 10);
                 }
             } else {
-                // If no custom photo, clicking the photo area triggers upload
                 if (avatarUpload) avatarUpload.click();
             }
         });
@@ -158,26 +193,56 @@ document.addEventListener('DOMContentLoaded', () => {
     // Avatar Upload Trigger Button
     if (avatarUploadTrigger && avatarUpload) {
         avatarUploadTrigger.addEventListener('click', (e) => {
-            e.stopPropagation(); // Avoid triggering any parent click
+            e.stopPropagation();
             avatarUpload.click();
         });
         
-        avatarUpload.addEventListener('change', (e) => {
+        avatarUpload.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    currentAvatarData = event.target.result;
-                    updateLivePreview();
-                    
-                    // Show saved badge quickly to indicate photo is attached to form
+                const formData = new FormData();
+                formData.append('avatar', file);
+
+                try {
                     if ($('savedBadge')) {
-                        $('savedBadge').innerHTML = '<i class="fa-solid fa-camera"></i> Photo attached';
+                        $('savedBadge').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading photo...';
                         $('savedBadge').style.display = 'inline-flex';
-                        setTimeout(() => $('savedBadge').style.display = 'none', 2000);
                     }
-                };
-                reader.readAsDataURL(file);
+
+                    const response = await fetch(`${API_BASE_URL}/profile/avatar`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.avatarUrl) {
+                        currentAvatarData = `http://localhost:5000${data.avatarUrl}`;
+                        
+                        // Sync local storage user details
+                        const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+                        localUser.avatar = data.avatarUrl;
+                        localStorage.setItem('user', JSON.stringify(localUser));
+
+                        updateLivePreview();
+
+                        if ($('savedBadge')) {
+                            $('savedBadge').innerHTML = '<i class="fa-solid fa-camera"></i> Photo uploaded!';
+                            $('savedBadge').style.display = 'inline-flex';
+                            setTimeout(() => $('savedBadge').style.display = 'none', 2000);
+                        }
+                    } else {
+                        alert(data.error || 'Avatar upload failed');
+                        if ($('savedBadge')) $('savedBadge').style.display = 'none';
+                    }
+                } catch (uploadErr) {
+                    console.error('Avatar upload network error:', uploadErr);
+                    alert('Avatar upload failed. Server connection error.');
+                    if ($('savedBadge')) $('savedBadge').style.display = 'none';
+                }
             }
         });
     }
@@ -198,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // Close on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && avatarLightbox.classList.contains('active')) {
                 closeLightbox();
@@ -216,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const goalEl = $('avatarGoal');
             if (goalEl) {
                 goalEl.innerHTML = goalInput.value.trim()
-                    ? `<i class="fa-solid fa-bullseye"></i> ${goalInput.value.trim()}`
+                    ? `<i class="fa-solid fa-bullseye"></i> ${escapeHTML(goalInput.value.trim())}`
                     : `<i class="fa-solid fa-bullseye"></i> <em>No study goal set yet</em>`;
             }
         });
@@ -229,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const badge = $('badgeInstitution');
             if (badge) {
                 badge.innerHTML = instInput.value.trim()
-                    ? `<i class="fa-solid fa-university"></i> ${instInput.value.trim()}`
+                    ? `<i class="fa-solid fa-university"></i> ${escapeHTML(instInput.value.trim())}`
                     : `<i class="fa-solid fa-university"></i> —`;
             }
         });
@@ -247,41 +311,84 @@ document.addEventListener('DOMContentLoaded', () => {
         $('statFocus').textContent = h > 0 ? `${h}h ${m}m` : (m > 0 ? `${m}m` : '—');
     }
 
-    // ── Save form ─────────────────────────────────────────────────
+    // ── Save Form Submission ──────────────────────────────────────
     const profileForm = $('profileForm');
     const saveBtn = $('saveBtn');
     const savedBadge = $('savedBadge');
 
     if (profileForm) {
-        profileForm.addEventListener('submit', (e) => {
+        profileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const existing = JSON.parse(localStorage.getItem('user') || '{}');
-            const updated = {
-                ...existing,
-                name: ($('profileName')?.value.trim()) || existing.name,
-                email: ($('profileEmail')?.value.trim()) || existing.email,
-                institution: ($('profileInstitution')?.value.trim()) || existing.institution,
-                year: $('profileYear')?.value || existing.year,
-                status: $('profileYear')?.value || existing.status,
-                field: ($('profileField')?.value.trim()) || existing.field,
-                studentId: ($('profileStudentId')?.value.trim()) || existing.studentId,
-                goal: ($('profileGoal')?.value.trim()) || existing.goal,
-                quote: ($('profileQuote')?.value.trim()) || existing.quote,
-                avatar: currentAvatarData || existing.avatar
-            };
+            const name = $('profileName')?.value.trim();
+            const email = $('profileEmail')?.value.trim();
+            const institution = $('profileInstitution')?.value.trim();
+            const year = $('profileYear')?.value;
+            const field = $('profileField')?.value.trim();
+            const studentId = $('profileStudentId')?.value.trim();
+            const goal = $('profileGoal')?.value.trim();
+            const quote = $('profileQuote')?.value.trim();
 
-            localStorage.setItem('user', JSON.stringify(updated));
-            syncLeftPanel(updated);
+            try {
+                if (saveBtn) {
+                    saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+                    saveBtn.disabled = true;
+                }
 
-            // Animate save button → success
-            if (saveBtn) {
-                saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved!';
-                saveBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                saveBtn.style.boxShadow = '0 4px 15px rgba(16,185,129,0.4)';
-                saveBtn.disabled = true;
+                const res = await apiFetch('/profile', {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        institution,
+                        year,
+                        field,
+                        studentId,
+                        goal,
+                        quote
+                    })
+                });
+
+                if (res) {
+                    const relativeAvatar = currentAvatarData ? currentAvatarData.replace('http://localhost:5000', '') : '';
+                    
+                    // Sync localStorage user object to sync layout sidebar
+                    const existingLocal = JSON.parse(localStorage.getItem('user') || '{}');
+                    const updatedLocal = {
+                        ...existingLocal,
+                        name,
+                        email,
+                        institution,
+                        year,
+                        status: year,
+                        field,
+                        studentId,
+                        goal,
+                        quote,
+                        avatar: relativeAvatar
+                    };
+                    localStorage.setItem('user', JSON.stringify(updatedLocal));
+                    syncLeftPanel(updatedLocal);
+
+                    // Animate save button to checkmark
+                    if (saveBtn) {
+                        saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved!';
+                        saveBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                        saveBtn.style.boxShadow = '0 4px 15px rgba(16,185,129,0.4)';
+                    }
+                    if (savedBadge) {
+                        savedBadge.innerHTML = '<i class="fa-solid fa-check"></i> Profile saved!';
+                        savedBadge.style.display = 'inline-flex';
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to submit profile changes:', err);
+                alert(err.message || 'Failed to save changes. Please try again.');
+                if (saveBtn) {
+                    saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Changes';
+                    saveBtn.disabled = false;
+                }
             }
-            if (savedBadge) savedBadge.style.display = 'inline-flex';
 
             setTimeout(() => {
                 if (saveBtn) {
@@ -324,14 +431,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Helper: sync left panel preview ──────────────────────────
     function syncLeftPanel(u) {
         const initial = (u.name || 'U').charAt(0).toUpperCase();
+        let avatarUrl = u.avatar || '';
+        
+        if (avatarUrl && avatarUrl.startsWith('/uploads/')) {
+            avatarUrl = `http://localhost:5000${avatarUrl}`;
+        }
 
-        if (u.avatar) {
+        if (avatarUrl) {
             if ($('avatarDisplay')) {
-                $('avatarDisplay').style.backgroundImage = `url(${u.avatar})`;
+                $('avatarDisplay').style.backgroundImage = `url(${avatarUrl})`;
                 $('avatarDisplay').textContent = '';
             }
             if ($('sidebarAvatar')) {
-                $('sidebarAvatar').style.backgroundImage = `url(${u.avatar})`;
+                $('sidebarAvatar').style.backgroundImage = `url(${avatarUrl})`;
                 $('sidebarAvatar').style.backgroundSize = 'cover';
                 $('sidebarAvatar').style.backgroundPosition = 'center';
                 $('sidebarAvatar').textContent = '';
@@ -354,13 +466,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if ($('avatarGoal')) {
             $('avatarGoal').innerHTML = u.goal
-                ? `<i class="fa-solid fa-bullseye"></i> ${u.goal}`
+                ? `<i class="fa-solid fa-bullseye"></i> ${escapeHTML(u.goal)}`
                 : `<i class="fa-solid fa-bullseye"></i> <em>No study goal set yet</em>`;
         }
         if ($('badgeInstitution')) {
             $('badgeInstitution').innerHTML = u.institution
-                ? `<i class="fa-solid fa-university"></i> ${u.institution}`
+                ? `<i class="fa-solid fa-university"></i> ${escapeHTML(u.institution)}`
                 : `<i class="fa-solid fa-university"></i> —`;
         }
     }
+
+    // ── Load Real Profile Data from Server on Startup ─────────────
+    async function loadUserProfile() {
+        try {
+            const profile = await apiFetch('/profile');
+            if (profile) {
+                if (profile.avatar) {
+                    currentAvatarData = profile.avatar.startsWith('/uploads/') 
+                        ? `http://localhost:5000${profile.avatar}`
+                        : profile.avatar;
+                } else {
+                    currentAvatarData = '';
+                }
+
+                // Pre-fill fields
+                if ($('profileName')) $('profileName').value = profile.name || '';
+                if ($('profileEmail')) $('profileEmail').value = profile.email || '';
+                if ($('profileInstitution')) $('profileInstitution').value = profile.institution || '';
+                if ($('profileYear')) $('profileYear').value = profile.year || 'Freshman';
+                if ($('profileField')) $('profileField').value = profile.field || '';
+                if ($('profileStudentId')) $('profileStudentId').value = profile.studentId || '';
+                if ($('profileGoal')) $('profileGoal').value = profile.goal || '';
+                if ($('profileQuote')) $('profileQuote').value = profile.quote || '';
+
+                // Populate local storage user model for sync consistency
+                const localUser = {
+                    ...profile,
+                    status: profile.year,
+                    avatar: profile.avatar || ''
+                };
+                localStorage.setItem('user', JSON.stringify(localUser));
+
+                // Re-render display preview cards
+                syncLeftPanel(localUser);
+                updateQuotePreview(profile.quote || '');
+                updateLivePreview();
+            }
+        } catch (err) {
+            console.error('API Profile load failed, falling back to local storage...', err);
+            // Local Storage fallback
+            const userJson = localStorage.getItem('user');
+            const localUser = userJson ? JSON.parse(userJson) : {};
+            currentAvatarData = localUser.avatar ? (localUser.avatar.startsWith('/uploads/') ? `http://localhost:5000${localUser.avatar}` : localUser.avatar) : '';
+            syncLeftPanel(localUser);
+            updateQuotePreview(localUser.quote || '');
+            updateLivePreview();
+        }
+    }
+
+    // Start profile initialization
+    loadUserProfile();
 });

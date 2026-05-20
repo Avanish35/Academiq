@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 
-// Get overview stats
+// Get overview stats - Highly optimized streak calculation & aggregation
 router.get('/overview', auth, async (req, res) => {
     try {
         const db = req.app.get('db');
@@ -16,29 +16,53 @@ router.get('/overview', auth, async (req, res) => {
             [req.user]
         );
 
-        // Calculate streak: count consecutive days with at least one focus session
-        const [streakRows] = await db.query(
-            `SELECT DISTINCT DATE(start_time) as day
-             FROM focus_sessions
-             WHERE user_id = ? AND type = 'Focus'
-             ORDER BY day DESC`,
+        // Optimized Streak Calculation:
+        // Step 1: Pre-check if a session exists today or yesterday to instantly filter out inactive users (shortcut path)
+        let streak = 0;
+        const [latestSession] = await db.query(
+            'SELECT MAX(start_time) as latest FROM focus_sessions WHERE user_id = ? AND type = "Focus"',
             [req.user]
         );
 
-        let streak = 0;
-        if (streakRows.length > 0) {
-            let currentDate = new Date();
-            currentDate.setHours(0, 0, 0, 0);
+        if (latestSession[0] && latestSession[0].latest) {
+            const latestDate = new Date(latestSession[0].latest);
+            latestDate.setHours(0, 0, 0, 0);
 
-            for (const row of streakRows) {
-                const rowDate = new Date(row.day);
-                rowDate.setHours(0, 0, 0, 0);
-                const diffDays = Math.round((currentDate - rowDate) / (1000 * 60 * 60 * 24));
-                if (diffDays <= 1) {
-                    streak++;
-                    currentDate = rowDate;
-                } else {
-                    break;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const diffDays = Math.round((today - latestDate) / (1000 * 60 * 60 * 24));
+
+            // Only run detailed consecutive scan if the latest study day was today or yesterday
+            if (diffDays <= 1) {
+                // Fetch at most the last 120 distinct study days (covers up to 4 months of active consecutive study)
+                // This eliminates the N-size memory strain on Node server memory
+                const [streakRows] = await db.query(
+                    `SELECT DISTINCT DATE(start_time) as day
+                     FROM focus_sessions
+                     WHERE user_id = ? AND type = 'Focus' AND start_time >= DATE_SUB(CURDATE(), INTERVAL 120 DAY)
+                     ORDER BY day DESC`,
+                    [req.user]
+                );
+
+                let currentDate = today;
+                if (diffDays === 1) {
+                    currentDate = latestDate;
+                }
+
+                for (const row of streakRows) {
+                    const rowDate = new Date(row.day);
+                    rowDate.setHours(0, 0, 0, 0);
+                    const gap = Math.round((currentDate - rowDate) / (1000 * 60 * 60 * 24));
+
+                    if (gap === 0) {
+                        streak++;
+                        // Shift reference window to yesterday
+                        currentDate.setDate(currentDate.getDate() - 1);
+                    } else if (gap > 0) {
+                        // Gaps in consecutive calendar dates break the active streak
+                        break;
+                    }
                 }
             }
         }
@@ -54,7 +78,8 @@ router.get('/overview', auth, async (req, res) => {
             streak: streak
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Analytics Overview Error:', err.stack);
+        res.status(500).json({ error: 'Failed to retrieve analytics overview. Internal server error.' });
     }
 });
 

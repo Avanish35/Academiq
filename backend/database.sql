@@ -10,6 +10,12 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     status VARCHAR(50) DEFAULT 'Student',
     avatar VARCHAR(255),
+    institution VARCHAR(255),
+    year VARCHAR(50) DEFAULT 'Freshman',
+    field VARCHAR(255),
+    student_id VARCHAR(100),
+    goal VARCHAR(255),
+    quote TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

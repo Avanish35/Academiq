@@ -83,7 +83,7 @@ router.delete('/:id', auth, async (req, res) => {
     }
 });
 
-// Auto-Schedule Logic (Smart Feature)
+// Auto-Schedule Logic (Smart Feature) - Optimized for high performance bulk insert
 router.post('/auto', auth, async (req, res) => {
     try {
         const db = req.app.get('db');
@@ -96,7 +96,7 @@ router.post('/auto', auth, async (req, res) => {
 
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
         const slots = ['09:00:00', '10:00:00', '11:00:00', '14:00:00', '15:00:00'];
-        const newBlocks = [];
+        const blocksToInsert = [];
         let taskIndex = 0;
 
         for (const day of days) {
@@ -111,19 +111,40 @@ router.post('/auto', auth, async (req, res) => {
                     const endM = (totalMins % 60).toString().padStart(2, '0');
                     const endTime = `${endH}:${endM}:00`;
 
-                    const [result] = await db.query(
-                        'INSERT INTO schedule_blocks (user_id, title, color, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)',
-                        [req.user, task.title, 'purple', day, slot, endTime]
-                    );
-                    newBlocks.push({ id: result.insertId, title: task.title, day_of_week: day });
+                    blocksToInsert.push([
+                        req.user,
+                        task.title,
+                        'purple',
+                        day,
+                        slot,
+                        endTime
+                    ]);
                     taskIndex++;
                 }
             }
         }
 
-        res.json({ message: `Successfully scheduled ${newBlocks.length} tasks`, blocks: newBlocks });
+        if (blocksToInsert.length > 0) {
+            const query = 'INSERT INTO schedule_blocks (user_id, title, color, day_of_week, start_time, end_time) VALUES ?';
+            const [result] = await db.query(query, [blocksToInsert]);
+            
+            const firstInsertId = result.insertId;
+            const newBlocks = blocksToInsert.map((block, idx) => ({
+                id: firstInsertId ? (firstInsertId + idx) : null,
+                title: block[1],
+                day_of_week: block[3]
+            }));
+
+            return res.json({ 
+                message: `Successfully scheduled ${blocksToInsert.length} tasks`, 
+                blocks: newBlocks 
+            });
+        }
+
+        res.json({ message: 'No new tasks were scheduled', blocks: [] });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Auto-Schedule Error:', err.stack);
+        res.status(500).json({ error: 'Failed to auto-schedule tasks. Internal server error.' });
     }
 });
 

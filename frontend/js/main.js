@@ -1,4 +1,18 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000/api'
+    : `${window.location.protocol}//${window.location.hostname}:5000/api`;
+
+// Security: Escape HTML to protect against Cross-Site Scripting (XSS)
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 
 // Check Authentication on Page Load
 const token = localStorage.getItem('token');
@@ -244,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.innerHTML = `
                 <div class="time">${task.scheduled_time || '--:--'}</div>
                 <div class="details">
-                    <h4>${task.title}</h4>
+                    <h4>${escapeHTML(task.title)}</h4>
                     <span class="tag ${priorityClass}">${task.priority}</span>
                 </div>
             `;
@@ -291,8 +305,8 @@ document.addEventListener('DOMContentLoaded', () => {
             item.innerHTML = `
                 <span class="drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                 <input type="checkbox" ${habit.completedToday ? 'checked' : ''} data-id="${habit.id}">
-                <span class="habit-text">${habit.title}</span>
-                <span class="habit-freq">${habit.frequency || 'Daily'}</span>
+                <span class="habit-text">${escapeHTML(habit.title)}</span>
+                <span class="habit-freq">${escapeHTML(habit.frequency || 'Daily')}</span>
                 <button class="habit-delete-btn" title="Delete habit" data-id="${habit.id}">
                     <i class="fa-solid fa-trash"></i>
                 </button>
@@ -430,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 <div class="task-labels"><span class="tag ${priorityClass}">${task.priority}</span></div>
-                <h4>${task.title}</h4>
+                <h4>${escapeHTML(task.title)}</h4>
                 <div class="task-description-wrapper">
                     ${(() => {
                     try {
@@ -445,16 +459,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             return `
                                     <div class="task-meta-info">
-                                        ${meta.category ? `<span class="category-tag">${meta.category}</span>` : ''}
+                                        ${meta.category ? `<span class="category-tag">${escapeHTML(meta.category)}</span>` : ''}
                                         ${meta.duration ? `<span class="duration-tag"><i class="fa-regular fa-clock"></i> ${meta.duration}m</span>` : ''}
                                     </div>
                                     ${subtaskInfo}
                                 `;
                         }
                     } catch (e) {
-                        return `<p class="text-muted" style="font-size:0.82rem; margin: 0.25rem 0 0.5rem;">${task.description || ''}</p>`;
+                        return `<p class="text-muted" style="font-size:0.82rem; margin: 0.25rem 0 0.5rem;">${escapeHTML(task.description || '')}</p>`;
                     }
-                    return `<p class="text-muted" style="font-size:0.82rem; margin: 0.25rem 0 0.5rem;">${task.description || ''}</p>`;
+                    return `<p class="text-muted" style="font-size:0.82rem; margin: 0.25rem 0 0.5rem;">${escapeHTML(task.description || '')}</p>`;
                 })()}
                 </div>
                 <div class="task-meta">
@@ -753,7 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
         subList.innerHTML = subtasks.map((s, i) => `
             <div class="subtask-item">
                 <input type="checkbox" ${s.done ? 'checked' : ''}>
-                <span>${s.text}</span>
+                <span>${escapeHTML(s.text)}</span>
                 <button type="button" class="remove-subtask" onclick="removeSubtask(${i})"><i class="fa-solid fa-trash-can"></i></button>
             </div>
         `).join('');
@@ -775,28 +789,40 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // AI Mock Logic
+    // AI Real Subtasks Generation Logic
     if (generateBtn) {
-        generateBtn.addEventListener('click', () => {
-            const title = document.getElementById('taskTitle').value.toLowerCase();
+        generateBtn.addEventListener('click', async () => {
+            const title = document.getElementById('taskTitle').value.trim();
             if (!title) {
                 alert('Please enter a task title first!');
                 return;
             }
 
-            let suggested = ['Break into smaller parts', 'Review resources', 'Complete final check'];
+            try {
+                // UI feedback: disable button and show loading state
+                generateBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+                generateBtn.disabled = true;
 
-            if (title.includes('study') || title.includes('read')) {
-                suggested = ['Skim the chapter', 'Highlight key terms', 'Create flashcards', 'Take a practice quiz'];
-            } else if (title.includes('project') || title.includes('build')) {
-                suggested = ['Define requirements', 'Draft initial design', 'Core implementation', 'Testing & Debugging'];
-            } else if (title.includes('exam') || title.includes('test')) {
-                suggested = ['Organize study notes', 'Solve past papers', 'Memorize formulas', 'Time-limited mock test'];
+                const response = await apiFetch('/ai/subtasks', {
+                    method: 'POST',
+                    body: JSON.stringify({ title })
+                });
+
+                if (response && Array.isArray(response.subtasks)) {
+                    subtasks = response.subtasks.map(text => ({ text, done: false }));
+                    renderSubtasks();
+                    addNotification('AI Assistant', 'Sub-tasks generated successfully! ✨', 'focus');
+                } else {
+                    alert('Could not generate subtasks. Please try again.');
+                }
+            } catch (err) {
+                console.error('AI Generation error:', err);
+                alert('AI subtask generation failed. Please try again.');
+            } finally {
+                // Restore button state
+                generateBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Subtasks';
+                generateBtn.disabled = false;
             }
-
-            subtasks = suggested.map(text => ({ text, done: false }));
-            renderSubtasks();
-            addNotification('AI Assistant', 'Sub-tasks generated based on your title! ✨', 'focus');
         });
     }
 
@@ -1044,7 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.innerHTML = `
                 <div class="block-content">
                     ${block.is_important ? '<i class="fa-solid fa-circle-exclamation important-icon"></i>' : ''}
-                    ${block.title}
+                    ${escapeHTML(block.title)}
                     <span class="time">${timeStr}</span>
                 </div>
             `;
@@ -1482,8 +1508,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <i class="fa-solid ${getNotiIcon(noti.type)}"></i>
                     </div>
                     <div class="noti-content">
-                        <div class="noti-title">${noti.title}</div>
-                        <div class="noti-desc">${noti.desc}</div>
+                        <div class="noti-title">${escapeHTML(noti.title)}</div>
+                        <div class="noti-desc">${escapeHTML(noti.desc)}</div>
                         <span class="noti-time">${timeAgo}</span>
                     </div>
                 </div>
